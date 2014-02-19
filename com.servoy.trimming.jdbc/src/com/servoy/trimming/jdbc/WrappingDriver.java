@@ -18,17 +18,14 @@ public class WrappingDriver implements Driver {
 
 	@Override
 	public Connection connect(String url, Properties info) throws SQLException {
-		Driver d = getUnderlyingDriver(url);
+		String[] urlAndDriver = getUrlAndDriver(url);
+		Driver d = getUnderlyingDriver(urlAndDriver);
 		if (d == null) {
 			return null;
 		}
 
-		// get actual URL that the real driver expects
-		// (strip off "jdbc:wrapping" from url)
-		url = url.substring(14);
-
 		lastUnderlyingDriverRequested = d;
-		Connection c = d.connect(url, info);
+		Connection c = d.connect(urlAndDriver[0], info);
 
 		if (c == null) {
 			throw new SQLException("invalid or unknown driver url: " + url);
@@ -40,7 +37,7 @@ public class WrappingDriver implements Driver {
 
 	@Override
 	public boolean acceptsURL(String url) throws SQLException {
-		Driver d = getUnderlyingDriver(url);
+		Driver d = getUnderlyingDriver(getUrlAndDriver(url));
 		if (d != null) {
 			lastUnderlyingDriverRequested = d;
 			return true;
@@ -63,19 +60,35 @@ public class WrappingDriver implements Driver {
 	 * @throws SQLException
 	 *             if a database access error occurs.
 	 */
-	private Driver getUnderlyingDriver(String url) throws SQLException {
-		if (url.startsWith("jdbc:wrapping")) {
-			url = url.substring(14);
-
+	private Driver getUnderlyingDriver(String[] urlAndDriver) throws SQLException {
+		if (urlAndDriver != null) {
+			try {
+				Class.forName(urlAndDriver[1]);
+			} catch(Exception e) {
+				// ignore and just try it.
+				System.out.println(e);
+			}
 			Enumeration<Driver> e = DriverManager.getDrivers();
 
 			while (e.hasMoreElements()) {
 				Driver d = e.nextElement();
 
-				if (d.acceptsURL(url)) {
+				if (d.acceptsURL(urlAndDriver[0])) {
 					return d;
 				}
 			}
+		}
+		return null;
+	}
+	
+	private String[] getUrlAndDriver(String url) {
+		if (url.startsWith("jdbc:wrapping")) {
+			url = url.substring(14);
+			
+			int index = url.indexOf(':');
+			String driverName = url.substring(0,index);
+			url = url.substring(index+1);
+			return new String[] {url,driverName};
 		}
 		return null;
 	}
@@ -83,13 +96,14 @@ public class WrappingDriver implements Driver {
 	@Override
 	public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
 			throws SQLException {
-		Driver d = getUnderlyingDriver(url);
+		String[] urlAndDriver = getUrlAndDriver(url);
+		Driver d = getUnderlyingDriver(urlAndDriver);
 		if (d == null) {
 			return new DriverPropertyInfo[0];
 		}
 
 		lastUnderlyingDriverRequested = d;
-		return d.getPropertyInfo(url, info);
+		return d.getPropertyInfo(urlAndDriver[0], info);
 	}
 
 	@Override
