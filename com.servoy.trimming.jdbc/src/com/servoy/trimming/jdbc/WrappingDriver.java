@@ -13,6 +13,22 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 public class WrappingDriver implements Driver {
+	
+    static
+    {
+        try
+        {
+            // moved the registerDriver from the constructor to here
+            // because some clients call the driver themselves (I know, as
+            // my early jdbc work did - and that was based on other examples).
+            // Placing it here, means that the driver is registered once only.
+            java.sql.DriverManager.registerDriver(new WrappingDriver());
+        }
+        catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+    }
 
 	private Driver lastUnderlyingDriverRequested;
 
